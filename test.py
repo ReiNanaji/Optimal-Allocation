@@ -43,35 +43,35 @@ def backtest(data, weight):
     newdata['CompoundReturn'].plot()
     return newdata
    
+if __name__ == "__main__":
+    quandl.ApiConfig.api_key = '8h7yyk7CKS3fd6ikTuLB'
 
-quandl.ApiConfig.api_key = '8h7yyk7CKS3fd6ikTuLB'
+    data = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies', header=0)[0]
 
-data = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies', header=0)[0]
+    tickers = data['Ticker symbol'].tolist()
 
-tickers = data['Ticker symbol'].tolist()
+    test = quandl.get_table('WIKI/PRICES', 
+                            qopts={ 'columns': [ 'ticker', 'date', 'close' ] },
+                            date={ 'gte': '2010-01-01', 'lte': '2018-01-01' }, 
+                            ticker=tickers[0:20],
+                            paginate=True)
 
-test = quandl.get_table('WIKI/PRICES', 
-                        qopts={ 'columns': [ 'ticker', 'date', 'close' ] },
-                        date={ 'gte': '2010-01-01', 'lte': '2018-01-01' }, 
-                        ticker=tickers[0:20],
-                        paginate=True)
+    df = test.groupby('ticker')['date'].count().reset_index()
+    tickers_to_keep = df.loc[df['date'] == 2012, 'ticker'].tolist()         
 
-df = test.groupby('ticker')['date'].count().reset_index()
-tickers_to_keep = df.loc[df['date'] == 2012, 'ticker'].tolist()         
+    data2 = quandl.get_table('WIKI/PRICES', 
+                            qopts={ 'columns': [ 'ticker', 'date', 'close' ] },
+                            date={ 'gte': '2010-01-01', 'lte': '2018-01-01' }, 
+                            ticker=tickers_to_keep,
+                            paginate=True)
 
-data2 = quandl.get_table('WIKI/PRICES', 
-                        qopts={ 'columns': [ 'ticker', 'date', 'close' ] },
-                        date={ 'gte': '2010-01-01', 'lte': '2018-01-01' }, 
-                        ticker=tickers_to_keep,
-                        paginate=True)
+    data3 = pd.pivot_table(data=data2, index='date', columns='ticker', values='close')
 
-data3 = pd.pivot_table(data=data2, index='date', columns='ticker', values='close')
+    insample = data3.iloc[:1500]
+    outsample = data3.iloc[1500:]
 
-insample = data3.iloc[:1500]
-outsample = data3.iloc[1500:]
-    
-weight = get_equal_weight(insample) 
-portfolio = backtest(outsample, weight)
+    weight = get_equal_weight(insample) 
+    portfolio = backtest(outsample, weight)
 
-mean, cov, weight2 = get_markowitz_weight(insample)
-portfolio2 = backtest(outsample, weight2)
+    mean, cov, weight2 = get_markowitz_weight(insample)
+    portfolio2 = backtest(outsample, weight2)
