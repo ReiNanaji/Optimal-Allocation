@@ -12,7 +12,7 @@ def get_equal_weight(data):
     return dict(zip(tickers, weight))
 
 
-def get_markowitz_weight(data, short=False):
+def get_markowitz_weight(data, risk_level=1, short=False):
     tickers = data.columns
     
     est_mean = data.mean()
@@ -30,17 +30,21 @@ def get_markowitz_weight(data, short=False):
         A = np.hstack([A, A2])
         B = np.hstack([B, B2])
     
-    weight = quadprog.solve_qp( est_cov.values, est_mean.values, A, B, 1 )[0]
+    if risk_level == 0:
+        weight = [1 if ticker == est_mean.argmax() else 0 for ticker in tickers]
+    elif risk_level == 'inf':
+        weight = quadprog.solve_qp( est_cov.values, 0*est_mean.values, A, B, 1 )[0]
+    else:
+        weight = quadprog.solve_qp( risk_level*est_cov.values, est_mean.values, A, B, 1 )[0]
     return est_mean, est_cov, dict(zip(tickers, weight))
 
 
-def backtest(data, weight):
+def backtest(data, weight, legend=None):
     newdata = data.copy()
     newdata['Portfolio'] = np.sum([weight[col] * newdata[col].values for col in newdata.columns ], axis=0)
-    newdata['Return'] = newdata['Portfolio'].pct_change()
+    #newdata['Return'] = newdata['Portfolio'].pct_change()
     newdata.iat[0, -1] = 0
     newdata['CompoundReturn'] = np.cumprod(1 + newdata['Return'])
-    newdata['CompoundReturn'].plot()
     return newdata
    
 if __name__ == "__main__":
@@ -66,12 +70,55 @@ if __name__ == "__main__":
                             paginate=True)
 
     data3 = pd.pivot_table(data=data2, index='date', columns='ticker', values='close')
+    data4 = data3.pct_change()
+    data4 = data4.drop(data4.index[0], axis=0)
 
-    insample = data3.iloc[:1500]
-    outsample = data3.iloc[1500:]
+    insample_price = data3.iloc[:1500]
+    outsample_price = data3.iloc[1500:]
 
-    weight = get_equal_weight(insample) 
-    portfolio = backtest(outsample, weight)
+    insample_ret = data4.iloc[:1500]
+    outsample_ret = data4.iloc[1500:]
 
-    mean, cov, weight2 = get_markowitz_weight(insample)
-    portfolio2 = backtest(outsample, weight2)
+    eqw = get_equal_weight(insample_ret)
+    p_eqw = backtest(insample_price, eqw)
+
+    mean, cov, w1 = get_markowitz_weight(insample_ret, risk_level=1)
+    p1 = backtest(insample_price, w1)
+
+    mean, cov, w2 = get_markowitz_weight(insample_ret, risk_level=0.01)
+    p2 = backtest(insample_price, w2)
+
+    mean, cov, w3 = get_markowitz_weight(insample_ret, risk_level=10000)
+    p3 = backtest(insample_price, w3)
+
+    mean, cov, w4 = get_markowitz_weight(insample_ret, risk_level=0)
+    p4 = backtest(insample_price, w4)
+
+    mean, cov, w5 = get_markowitz_weight(insample_ret, risk_level='inf')
+    p5 = backtest(insample_price, w5)
+
+
+    fig, ax = plt.subplots(6,1)
+    ax[0].bar(eqw.keys(), eqw.values(), label='EQW')
+    ax[1].bar(w1.keys(), w1.values(), label='L=1')
+    ax[2].bar(w4.keys(), w4.values(), label='L=0')
+    ax[3].bar(w2.keys(), w2.values(), label='L=0.01')
+    ax[4].bar(w5.keys(), w5.values(), label='L=inf')
+    ax[5].bar(w3.keys(), w3.values(), label='L=10000')
+
+    ax[0].legend()
+    ax[1].legend()
+    ax[2].legend()
+    ax[3].legend()
+    ax[4].legend()
+    ax[5].legend()
+    plt.show()
+
+    plt.figure()
+    plt.plot(p_eqw.index, p_eqw['CompoundReturn'], label='EQW')
+    plt.plot(p1.index, p1['CompoundReturn'], label='L=1')
+    plt.plot(p4.index, p4['CompoundReturn'], label='L=0')
+    plt.plot(p5.index, p5['CompoundReturn'], label='L=inf')
+    plt.legend(loc=0)
+    plt.grid()
+    plt.show()
