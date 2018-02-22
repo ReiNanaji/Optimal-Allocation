@@ -13,7 +13,15 @@ We want a correlation matrix that represents the future.
 
 The question is: How can we find a robust estimator of the correlation matrix?
 
+With the sample estimate: "Small eigenvalues are too small, Large eigenvalues are too large" - Distribution of eigenvalues for some sets of random matrices
+
 - Case 1: The correlation matrix is supposed to be time-independent
+
+1) Basic Linear shrinkage
+2) Advanced Linear shrinkage
+3) Eigenvalues clipping
+4) Eigenvalues substitution
+5) Rotationally invariant, optimal shrinkage
 
 - Case 2: The correlation matrix is supposed to be time-dependent
 
