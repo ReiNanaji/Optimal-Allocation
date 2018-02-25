@@ -1,23 +1,25 @@
-
 import pandas as pd
 import numpy as np
 import quandl 
+import quadprog
+import matplotlib.pyplot as plt
 
 
+def get_tickers(data):
+    return data.columns
+    
+def get_insample_mean_est(data):
+    return data.mean()
 
-def get_equal_weight(data):
-    ncol = len(data.columns)
-    tickers = data.columns
+def get_insample_cov_est(data):
+    return data.cov()
+
+def get_equal_weight(tickers):
+    ncol = len(tickers)
     weight = [1/float(ncol) for i in range(ncol)]
     return dict(zip(tickers, weight))
 
-
-def get_markowitz_weight(data, risk_level=1, short=False):
-    tickers = data.columns
-    
-    est_mean = data.mean()
-    est_cov = data.cov()
-    
+def get_markowitz_weight(tickers, est_mean, est_cov, risk_level=1, short=False):    
     # Sum of weights is 1
     A = np.ones((len(tickers),1))
     B = np.ones(1)
@@ -36,13 +38,13 @@ def get_markowitz_weight(data, risk_level=1, short=False):
         weight = quadprog.solve_qp( est_cov.values, 0*est_mean.values, A, B, 1 )[0]
     else:
         weight = quadprog.solve_qp( risk_level*est_cov.values, est_mean.values, A, B, 1 )[0]
-    return est_mean, est_cov, dict(zip(tickers, weight))
+    return dict(zip(tickers, weight))
 
 
 def backtest(data, weight, legend=None):
     newdata = data.copy()
     newdata['Portfolio'] = np.sum([weight[col] * newdata[col].values for col in newdata.columns ], axis=0)
-    #newdata['Return'] = newdata['Portfolio'].pct_change()
+    newdata['Return'] = newdata['Portfolio'].pct_change()
     newdata.iat[0, -1] = 0
     newdata['CompoundReturn'] = np.cumprod(1 + newdata['Return'])
     return newdata
@@ -79,22 +81,26 @@ if __name__ == "__main__":
     insample_ret = data4.iloc[:1500]
     outsample_ret = data4.iloc[1500:]
 
-    eqw = get_equal_weight(insample_ret)
+    tickers = get_tickers(data4)
+    est_mean = get_insample_mean_est(insample_ret)
+    est_cov = get_insample_cov_est(insample_ret)
+
+    eqw = get_equal_weight(tickers)
     p_eqw = backtest(insample_price, eqw)
 
-    mean, cov, w1 = get_markowitz_weight(insample_ret, risk_level=1)
+    w1 = get_markowitz_weight(tickers, est_mean, est_cov, risk_level=1)
     p1 = backtest(insample_price, w1)
 
-    mean, cov, w2 = get_markowitz_weight(insample_ret, risk_level=0.01)
+    w2 = get_markowitz_weight(tickers, est_mean, est_cov, risk_level=0.01)
     p2 = backtest(insample_price, w2)
 
-    mean, cov, w3 = get_markowitz_weight(insample_ret, risk_level=10000)
+    w3 = get_markowitz_weight(tickers, est_mean, est_cov, risk_level=10000)
     p3 = backtest(insample_price, w3)
 
-    mean, cov, w4 = get_markowitz_weight(insample_ret, risk_level=0)
+    w4 = get_markowitz_weight(tickers, est_mean, est_cov, risk_level=0)
     p4 = backtest(insample_price, w4)
 
-    mean, cov, w5 = get_markowitz_weight(insample_ret, risk_level='inf')
+    w5 = get_markowitz_weight(tickers, est_mean, est_cov, risk_level='inf')
     p5 = backtest(insample_price, w5)
 
 
