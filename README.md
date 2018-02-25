@@ -22,8 +22,8 @@ The matrices are built on in-sample data (obviously)
 3) Rotationally invariant, optimal shrinkage
 
 
-*Implement the 3 remaining estimator*
-*What is the theoretical basis on which those estimators have been built?*
+.Implement the 3 remaining estimator
+.What is the theoretical basis on which those estimators have been built?
 
 - Case 2: The correlation matrix is supposed to be time-dependent
 
